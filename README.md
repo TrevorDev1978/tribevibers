@@ -17,5 +17,6 @@ Final static website package. Open `index.html` or upload the whole folder to an
 
 No build step or framework is required.
 
-
 V6: removed the final Booking / Festivals / Press CTA section as requested.
+
+Deployment sync: GitHub repository connected to Vercel.
