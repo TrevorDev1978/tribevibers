@@ -4,13 +4,19 @@ import re, sys
 p = Path(sys.argv[1] if len(sys.argv) > 1 else "press-kit.pdf")
 data = p.read_bytes()
 
+official_epk = b"https://share.bridge.audio/slaven-ljujic/tribevibers-volume-one?id=b6d905b0-528c-4881-9399-b86cca76686d&pid=dc4e1c96-31d1-42c7-93cf-1c9e055166c4"
 listen = b"https://share.bridge.audio/slaven-ljujic/tribevibers-volume-one?id=30d77b92-efa8-410f-a820-8add309bebb5"
-press = b"https://share.bridge.audio/slaven-ljujic/tribevibers-volume-one?id=b6d905b0-528c-4881-9399-b86cca76686d&pid=dc4e1c96-31d1-42c7-93cf-1c9e055166c4"
+press = official_epk
 
-# If the exact two requested annotation URLs already exist in the latest objects, do nothing.
-tail = data[-10000:]
-if listen in tail and press in tail:
-    print("PDF links already fixed")
+# Preserve the two links already fixed in the previous pass.
+tail = data[-12000:]
+if listen not in tail or press not in tail:
+    raise SystemExit("Expected existing LISTEN MUSIC / FULL PRESS KIT fixes are not present; refusing to touch the PDF")
+
+# If OFFICIAL EPK is already the requested link in the latest object 4, do nothing.
+latest_obj4 = list(re.finditer(br"4 0 obj\s*<<(.*?)>>\s*endobj", data, re.S))
+if latest_obj4 and official_epk in latest_obj4[-1].group(1):
+    print("OFFICIAL EPK link already fixed")
     raise SystemExit(0)
 
 m = re.search(br"startxref\s+(\d+)\s+%%EOF\s*$", data)
@@ -31,14 +37,12 @@ if not (size_m and root_m):
 size = int(size_m.group(1))
 root_obj, root_gen = int(root_m.group(1)), int(root_m.group(2))
 
-obj17 = b"17 0 obj\n<< /A << /S /URI /Type /Action /URI (" + listen + b") >> /Border [0 0 0] /Rect [614 78 776 114] /Subtype /Link /Type /Annot >>\nendobj\n"
-obj42 = b"42 0 obj\n<< /A << /S /URI /Type /Action /URI (" + press + b") >> /Border [0 0 0] /Rect [325.9449 76 515.9449 110] /Subtype /Link /Type /Annot >>\nendobj\n"
+# Page 1 OFFICIAL EPK button only. Geometry is unchanged.
+obj4 = b"4 0 obj\n<< /A << /S /URI /Type /Action /URI (" + official_epk + b") >> /Border [0 0 0] /Rect [86 90 228 125] /Subtype /Link /Type /Annot >>\nendobj\n"
 
 base = data + (b"\n" if not data.endswith(b"\n") else b"")
-off17 = len(base)
-base += obj17
-off42 = len(base)
-base += obj42
+off4 = len(base)
+base += obj4
 xref_off = len(base)
 
 trailer = f"<< /Size {size} /Root {root_obj} {root_gen} R /Prev {prev}".encode()
@@ -47,10 +51,9 @@ if id_m:
 trailer += b" >>"
 
 append = (
-    b"xref\n17 1\n" + f"{off17:010d} 00000 n \n".encode() +
-    b"42 1\n" + f"{off42:010d} 00000 n \n".encode() +
+    b"xref\n4 1\n" + f"{off4:010d} 00000 n \n".encode() +
     b"trailer\n" + trailer + b"\nstartxref\n" +
     str(xref_off).encode() + b"\n%%EOF\n"
 )
 p.write_bytes(base + append)
-print("Patched only PDF link annotations 17 and 42")
+print("Patched only PDF OFFICIAL EPK link annotation 4")
