@@ -1,0 +1,32 @@
+name: Fix press kit PDF links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/patch_presskit_links.py"
+      - ".github/workflows/fix-presskit-links.yml"
+      - ".github/trigger-presskit-fix.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch only the two requested PDF links
+        run: python3 scripts/patch_presskit_links.py press-kit.pdf
+      - name: Commit patched PDF if changed
+        run: |
+          if git diff --quiet -- press-kit.pdf; then
+            echo "No PDF change needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add press-kit.pdf
+          git commit -m "Fix PDF Listen Music and Full Press Kit links"
+          git push
